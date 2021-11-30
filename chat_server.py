@@ -1,41 +1,28 @@
 import select
-import sys
 import threading
-
-import indexer
 import json
-import pickle as pkl
 import chat_utils as utils
 import time
 import socket
-from legacy import chat_group as grp
-import tkinter as tk
-from tkinter import ttk
+import indexer
 import ICS_Chatroom_DBMS as DBMS
 
 
 class Server:
     def __init__(self):
         self.new_clients = []  # list of new sockets of which the user id is not known
-        # self.logged_names = []  # record the names of logged users
         self.logged_sock2name = {}
         self.all_sockets = []
         self.dbms = DBMS.Chat_DBMS()
-
-        # threading.Thread(target=self.shut_down).start()
 
         # start server
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         self.server.bind(utils.SERVER)
-        self.server.listen(5)           # @a: 5 as in at most 5 connections can be kept waiting. If 6th, refused.
-        self.all_sockets.append(self.server)    # @a: the first socket must be server socket
+        self.server.listen(5)
+        self.all_sockets.append(self.server)
 
-        # initialize past chat indices
-        self.indices = {}
-        #  @a: self.indices maps a client’s name to its chat indexÍÍ
-
-        # sonnet
+        # poem database
         self.sonnet = indexer.PIndex("AllSonnets.txt")
 
     @property
@@ -63,8 +50,8 @@ class Server:
             if msg_from_user is None:
                 # - is None means login_or_register is called in Server.run()
                 # - not None means login_or_register is called in Server.handle_msg().
-                # This if statement is added because two recv from
-                #       same socket will make the second one get nothing
+                # This if statement is added because a duplicated recv call from
+                #       same socket will make the second recv return nothing
                 msg_from_user = json.loads(utils.myrecv(sock))
             if utils.VERBOSE:
                 print("[DEBUG]\t\tmessage received from client")
@@ -96,11 +83,6 @@ class Server:
                             status = False
                             msg_to_user = f"Username: {username} is not registered"
 
-                    if utils.VERBOSE:
-                        msg_to_user_json = json.dumps({"action": "login",
-                                                       "status": status,
-                                                       "username": username,
-                                                       "message": msg_to_user})
                     utils.mysend(sock, json.dumps(
                         {
                             "action": "login",
@@ -109,10 +91,7 @@ class Server:
                             "message": msg_to_user
                         }
                     ))
-                    if utils.VERBOSE:
-                        print(f"[DEBUG] msg_to_user_json: {msg_to_user_json}")
 
-                # todo: register
                 elif msg_from_user["action"] == "register":
                     username = msg_from_user["username"]
                     password = msg_from_user["password"]
@@ -143,9 +122,8 @@ class Server:
                     print(f'[ERROR] Wrong code received: {msg_from_user}')
 
             else:  # client died unexpectedly
-                # @a: client fail to login, logout client but leave its record in self.all_sockets
                 self.logout(sock)
-                pass
+
         except IndexError as e:
             print(e)
             print(f"[DISCONNECTION] an unlogged client has disconnected from the server.")
@@ -204,7 +182,6 @@ class Server:
                                           "result": ctime})
                 utils.mysend(from_sock, msg_to_user)  # @a: this is the Fricking PEER_MSGS in chat_client_class.py
 
-            # todo:
             elif msg_from_user["action"] == "load_history":
                 username = msg_from_user["send_from"]
                 no_error, result = self.dbms.load_history(username)
@@ -218,7 +195,6 @@ class Server:
                                               "message": result})
                 utils.mysend(from_sock, msg_to_user)
 
-            # todo: record message into database (final step)
             elif msg_from_user["action"] == "send_chat":
                 if utils.VERBOSE:
                     print(f"[DEBUG]\t\t{msg_from_user}")
@@ -244,7 +220,6 @@ class Server:
                     print(f"[ERROR] fail to send message: \n{msg_from_user}"
                           f"because {result}")
 
-            # todo:
             elif msg_from_user["action"] == "join_group":
                 username = msg_from_user["send_from"]
                 group_name = msg_from_user["group_name"]
@@ -263,7 +238,6 @@ class Server:
                                                     "group_id": group_id,
                                                     "message": msg}))
 
-            # todo:
             elif msg_from_user["action"] == "create_group":
                 group_name = msg_from_user["group_name"]
 
@@ -309,15 +283,10 @@ class Server:
                             {"action": "logout",
                              "status": False,
                              "message": "logout fails for unknown reason."}))
-                    # print(f"[LOGOUT] {name} has logged out.")
                 except Exception as e:
                     print(f"[ERROR] an error occurs during logging out: {e}")
 
             elif msg_from_user["action"] == "exit":
-                # name = msg_from_user["send_from"]
-                # @a: save index of name to name.idx
-                # pkl.dump(self.indices[name], open(name + '.idx', 'wb'))
-
                 self.logout(from_sock)
                 self.all_sockets.remove(from_sock)
                 from_sock.close()
@@ -326,24 +295,23 @@ class Server:
             # client died unexpectedly
             self.logout(from_sock)
 
-# ==============================================================================
-# main loop, loops *forever*
-# ==============================================================================
+
+    # the mainloop
     def run(self):
         print('[Booting] starting server...')
         while True:
             try:
                 read, write, error = select.select(self.all_sockets, [], [])
-                print('[CHECKING] checking logged clients..')                      # @a: handle messages from current clients
+                print('[CHECKING] checking logged clients..')                      # handle messages from current clients
                 for logc in self.logged_sock2name:
                     if logc in read:
                         self.handle_msg(logc)
-                print('[CHECKING] checking new clients..')                         # @a: new clients -log in-> members
+                print('[CHECKING] checking new clients..')                         # new clients, login or register
                 for newc in self.new_clients:
                     if newc in read:
                         self.login_or_register(newc)
-                print('[CHECKING] checking for new connections..')                 # @a: potential clients -connect-> new clients
-                if self.server in read:        # @a: if server is readable, connect (i.e. append to new_client).
+                print('[CHECKING] checking for new connections..')                 # check potential connection
+                if self.server in read:        # if server is readable, connect (i.e. append to new_client).
                     # new client request
                     sock, address = self.server.accept()
                     self.new_client(sock)
@@ -354,29 +322,23 @@ class Server:
                 print(f"[EXIT] Server has shut down.")
                 break
 
-    # -- FAILED
-    # open a new thread to listen to stdin,
-    # when it receives ctrl+z or ctrl+c, it will shut down the server.
-    def shut_down(self):
-        while True:
-            try:
-                input()
-            except Exception as e:
-                # for s in self.all_sockets:
-                #     self.logout(s)
-                print(e)
-                self.server.close()
-                print("[EXIT] Shutting down the server...")
-                break
-
+    # shut_down() is a Failed attempt. I was trying to start a new thread for shutting
+    #       down server from the commandline, but it doesn't work.
+    # def shut_down(self):
+    #     while True:
+    #         try:
+    #             input()
+    #         except Exception as e:
+    #             # for s in self.all_sockets:
+    #             #     self.logout(s)
+    #             print(e)
+    #             self.server.close()
+    #             print("[EXIT] Shutting down the server...")
+    #             break
 
 if __name__ == "__main__":
-
     myserver = Server()
     myserver.run()
-
-    new_thread = threading.Thread(target=Server.shut_down)
-    new_thread.start()
 
 
 

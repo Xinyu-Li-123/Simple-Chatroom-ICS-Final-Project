@@ -222,16 +222,26 @@ class Chat_DBMS:
         if not self.is_username_exist(username=username):
             return False, f"user: '{username}' does not exist."
         user_id = self.user_name2id(username)
-        sql=f"""SELECT content FROM messages
-                WHERE send_from={user_id}
+        _, group_ids = self.list_groups_of_user(username)
+        group_ids = tuple([g[0] for g in group_ids])
+
+        sql=f"""SELECT send_date, send_from, send_to, content
+                FROM messages 
+                WHERE send_to IN {str(group_ids)}              
                 AND content
                 LIKE '%{term}%';"""
         print(sql)
         self.cursor.execute(sql)
         result = self.cursor.fetchall()
+        print(result)
+        result_str = []
         if result:
-            result = [r[0] for r in result]
-        return True, result
+            for r in result:
+                result_str.append(f"[{r[0]}] "
+                                  f"in group #{r[2]}: {self.group_id2name(r[2])}\n"
+                                  f"[{self.user_id2name(r[1])}] "
+                                  f"{r[3]}")
+        return True, result_str
 
     def show_users_in_group(self, group_id):
         sql = f"""SELECT user_id FROM in_group WHERE group_id={group_id};"""
