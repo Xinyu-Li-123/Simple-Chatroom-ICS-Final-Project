@@ -24,7 +24,7 @@ This is the final project for my Intro to Computer Science class. It's a multicl
 
 Below is a screenshot from the client distribution.
 
-  ![demo_screenshot](D:\Eiger\Coding\cs\Python\Project\Simple-Chatroom-ICS-Final-Project\demo_screenshot.png)
+  ![demo_screenshot](demo_screenshot.png)
 
 #### Server
 
@@ -35,7 +35,7 @@ Below is a screenshot from the client distribution.
 
 Below is the diagram of the server database.
 
-![Simple_Chatroom_Database_Diagram](D:\Eiger\Coding\cs\Python\Project\Simple-Chatroom-ICS-Final-Project\Simple_Chatroom_Database_Diagram.png)
+![Simple_Chatroom_Database_Diagram](Simple_Chatroom_Database_Diagram.png)
 
 ### Installation
 
