@@ -414,7 +414,7 @@ class New_message:              # the newest message to be displayed on the scre
         self.__group_id = utils.SYS_GRP_ID
         self.__send_from = "NULL"
 
-# todo:
+
 class Group_button(tk.Button):
     def __init__(self, root, group_id: int, group_name: str, chat_frame):
 
@@ -520,7 +520,7 @@ class Group_frame(tk.Frame):
     def popup_join_group(self):
         # create new group or join existing group
         if self.root.client.state == utils.S_OFFLINE:
-            self.root.chat_frame.new_msg.set(new_content=f"Please log in first",
+            self.root.chat_frame.new_msg.set(new_content=f"[SYSTEM] Please log in first",
                                              group_id=utils.SYS_GRP_ID)
             self.root.chat_frame.put_up_new_msg()
             return
@@ -587,8 +587,8 @@ class Group_frame(tk.Frame):
                 self.root.client.create_group(group_name)
 
     def popup_search_result(self, term, result):
-        self.popup_search_result_frame = tk.Toplevel(self, bg=utils.GREY)
-        self.popup_search_result_frame.geometry("250x300")
+        self.popup_search_result_frame = tk.Toplevel(self, bg=utils.WHITE)
+        self.popup_search_result_frame.geometry("600x300")
         self.popup_search_result_frame.title("Search Result")
         self.popup_search_result_frame.focus()
         self.popup_search_result_frame.rowconfigure(0, weight=1)
@@ -608,6 +608,11 @@ class Group_frame(tk.Frame):
 
         result_box.insert(tk.END, disp_result)
         result_box.config(state=tk.DISABLED)
+
+        yscroll = ttk.Scrollbar(self.popup_search_result_frame,
+                                orient="vertical",
+                                command=result_box.yview)
+        yscroll.grid(row=0, column=1, sticky="nse")
 
         for w in self.popup_search_result_frame.winfo_children():
             w.grid(padx=4)
@@ -639,6 +644,7 @@ class Group_frame(tk.Frame):
                                      bg=utils.WHITE,
                                      font=utils.FONT_NORMAL)
         search_term_entry.grid(row=1, column=0, sticky="nwe")
+        search_term_entry.focus()
 
         tk.Button(self.popup_search_chat_frame,
                    text="Search",
@@ -653,7 +659,7 @@ class Group_frame(tk.Frame):
 
 
     def search_chat_history(self, keyword: str):
-        if keyword.isspace():
+        if not keyword or keyword.isspace():        # if input is nothing or space
             self.root.chat_frame.new_msg.set(new_content="[SYSTEM] Keyword can't be empty.",
                                              group_id=utils.SYS_GRP_ID)
             self.root.chat_frame.put_up_new_msg()

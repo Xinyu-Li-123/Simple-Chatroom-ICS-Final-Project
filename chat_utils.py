@@ -15,7 +15,7 @@ S_CONNECTED = 1
 S_LOGGEDIN  = 2
 S_CHATTING  = 3
 
-VERBOSE = True
+VERBOSE = False
 
 STATE2STR = {0: "Offline",
              1: "Connected",
