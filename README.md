@@ -1,8 +1,10 @@
-# Simple-Chatroom-ICS-Final-Project
+#   ![chatroom icon](res/chatroom.ico)    Simple-Chatroom-ICS-Final-Project
+
+[![license-shield](https://img.shields.io/apm/l/vim-mode)](https://github.com/Xinyu-Li-123/Routine-Exercise/blob/main/LICENSE.txt)
 
 ## About
 
-This is the final project for my Intro to Computer Science class. It's a multiclient chat system written in python. 
+This is the final project for my Intro to Computer Science class. It's a multiclient chat system written in python. It features GUI and database.
 
 ## Functionality
 
