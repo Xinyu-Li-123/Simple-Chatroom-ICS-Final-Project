@@ -29,8 +29,6 @@ Below is a screenshot from the client distribution.
 * Database implemented using SQLite that 
   * is light, portable and server-less
   * can manage users actions like login, register, add group, search for chat history
-
-* The database is light, portable and server-less.
 * Self-designed protocol for message transmission between server and client.
 * Detailed status update information on the command line interface
 
@@ -72,7 +70,9 @@ pyinstaller --name "Simple Chatroom" -w --add-data "./res;./res" --icon "./res/c
 
 
 
-#### 
+#### Future
+
+
 
 
 

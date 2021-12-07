@@ -27,16 +27,17 @@ class Main_GUI(tk.Tk):
         answer = messagebox.askquestion(title="Exit?",
                                         message="Are you sure you want to exit?")
         if answer == "yes":  # first logout, then exit
-            print(self.chat_frame.cache)
+            if utils.VERBOSE:
+                print(self.chat_frame.cache)
             self.client.exit()
             sys.exit()
 
     def app(self):
         """
-        Put root in Main_GUI.app(), and configure all other frames
+        Put root in Main_GUI.app(), and configure other frames
         """
         self.title("ICS Chatroom")
-        self.geometry("430x400")
+        self.geometry("530x400")
         self.config(bg=utils.DEEPGREY)
 
         self.func_frame = Func_frame(self)
@@ -68,6 +69,9 @@ class Main_GUI(tk.Tk):
         self.chat_frame.rowconfigure(1, weight=1)
         self.chat_frame.columnconfigure(0, weight=3)
 
+        self.leave_group_btn = Leave_group_button(self)
+        self.leave_group_btn.grid(row=0, column=2, sticky="nswe", padx=10, pady=6)
+
         self.status_frame.columnconfigure(0, weight=1)
         self.status_frame.columnconfigure(1, weight=1)
 
@@ -80,7 +84,6 @@ class Main_GUI(tk.Tk):
 
 
         self.chat_frame.switch_to(utils.SYS_GRP_ID)
-        print(self.chat_frame.cache)
 
 
 class Client:
@@ -100,7 +103,7 @@ class Client:
     def login(self, name, password):
         if self.state == utils.S_OFFLINE:
             if name.isspace() or password.isspace():                # if name or password is empty
-                self.root.chat_frame.new_msg.set(new_content="Login fail: Username and password can't be empty!",
+                self.root.chat_frame.new_msg.set(new_content="[SYSTEM] Login fail: Username and password can't be empty!",
                                                  group_id=utils.SYS_GRP_ID)
                 self.root.chat_frame.put_up_new_msg()
             else:
@@ -109,10 +112,11 @@ class Client:
                                   "password": password})
 
                 utils.mysend(self.socket, msg_to_server)
-                print("message send in login")
-                print(msg_to_server)
+                if utils.VERBOSE:
+                    print("message send in login")
+                    print(msg_to_server)
         else:
-            self.root.chat_frame.new_msg.set(new_content=f"You have already logged in as: {self.name}",
+            self.root.chat_frame.new_msg.set(new_content=f"[SYSTEM] You have already logged in as: {self.name}",
                                              group_id=utils.SYS_GRP_ID)
             self.root.chat_frame.put_up_new_msg()
 
@@ -135,19 +139,6 @@ class Client:
                 utils.mysend(self.socket, msg)
                 if utils.VERBOSE:
                     print(f"message send in Client.register():\n{msg}")
-                # response = json.loads(utils.myrecv(self.socket))
-                # if utils.VERBOSE:
-                #     print("response get in Client.register()")
-                #
-                # if response["status"] is True:      # if register succeed, login
-                #     no_error, msg = self.login(name, password)
-                #     if no_error:
-                #         return True, response["message"]
-                #     else:
-                #         raise Exception(f"What the heck has happened when you register?: {msg}")
-                #         # return False, msg
-                # elif response["status"] == False:
-                #     return False, response["message"]
 
     def load_history(self):
         if self.state == utils.S_LOGGEDIN:
@@ -228,6 +219,12 @@ class Client:
                                "term": term})
         utils.mysend(self.socket, msg_json)
 
+    def leave_group(self, group_name: str):
+        msg_json = json.dumps({"action": "leave_group",
+                               "send_from": self.name,
+                               "group_name": group_name})
+        utils.mysend(self.socket, msg_json)
+
     # a typical application is:
     # send_msg(msg)
     # result = receive_msg()
@@ -239,12 +236,11 @@ class Client:
                 break
             msg_from_server = json.loads(msg_json)
 
+            if utils.VERBOSE:
+                print('msg_from_server: ' + str(msg_from_server))
+
 
             if msg_from_server["action"] == "login":
-
-                if utils.VERBOSE:
-                    print("response get in receive_msg for login")
-                    print(msg_from_server)
 
                 if msg_from_server["status"] == True:      # login successfully
                     self.state = utils.S_LOGGEDIN
@@ -266,8 +262,6 @@ class Client:
 
 
             elif msg_from_server["action"] == "register":
-                if utils.VERBOSE:
-                    print("response get in receive_msg for register")
 
                 msg = msg_from_server["message"]
                 self.root.chat_frame.new_msg.set(new_content="[SYSTEM] " + msg,
@@ -285,9 +279,8 @@ class Client:
                     result = msg_from_server["result"]
                     self.root.group_frame.load_history(result)
                 else:
-                    # put up error message
                     msg = msg_from_server["message"]
-                    self.root.chat_frame.new_msg.set(new_content=msg,
+                    self.root.chat_frame.new_msg.set(new_content='[SYSTEM] ' + msg,
                                                      group_id=utils.SYS_GRP_ID)
 
             elif msg_from_server["action"] == "time":
@@ -295,10 +288,9 @@ class Client:
                 self.root.chat_frame.new_msg.set(new_content=f"[SYSTEM] The current server time is {cur_time}.",
                                                  group_id=utils.SYS_GRP_ID)
                 self.root.chat_frame.put_up_new_msg()
+                self.root.chat_frame.switch_to(utils.SYS_GRP_ID)
 
             elif msg_from_server["action"] == "poem":
-                if utils.VERBOSE:
-                    print(msg_from_server)
                 no_error = msg_from_server["status"]
                 poem_idx = msg_from_server["index"]
                 if no_error:
@@ -311,10 +303,10 @@ class Client:
                     self.root.chat_frame.new_msg.set(new_content=f"[SYSTEM] Poem #{poem_idx} not found in the sonnet database..",
                                                  group_id=utils.SYS_GRP_ID)
                     self.root.chat_frame.put_up_new_msg()
+                self.root.chat_frame.switch_to(utils.SYS_GRP_ID)
 
 
             elif msg_from_server["action"] == "recv_chat":
-                print("chat message received from server")
                 send_from = msg_from_server["send_from"]
                 group_id = msg_from_server["send_to"]
                 new_msg = msg_from_server['message']
@@ -323,11 +315,10 @@ class Client:
                                                  send_from=send_from)
                 self.root.chat_frame.put_up_new_msg()
 
-            # todo:
             elif msg_from_server["action"] == "create_group":
                 no_error  = msg_from_server["status"]
                 group_name = msg_from_server["group_name"]
-                msg = msg_from_server["message"]
+                msg = '[SYSTEM] ' + msg_from_server["message"]
 
                 self.root.chat_frame.new_msg.set(new_content=msg,
                                                  group_id=utils.SYS_GRP_ID)
@@ -336,7 +327,6 @@ class Client:
                 if no_error:
                     self.join_group(group_name)
 
-            # todo:
             elif msg_from_server["action"] == "join_group":
                 no_error = msg_from_server["status"]
                 msg = f"[SYSTEM] {msg_from_server['message']}"
@@ -353,7 +343,7 @@ class Client:
 
             elif msg_from_server["action"] == "search_chat_history":
                 no_error = msg_from_server["status"]
-                msg = msg_from_server["message"]
+                msg = "[SYSTEM] " + msg_from_server["message"]
                 self.root.chat_frame.new_msg.set(new_content=msg,
                                                  group_id=utils.SYS_GRP_ID)
                 self.root.chat_frame.put_up_new_msg()
@@ -363,15 +353,30 @@ class Client:
                     result = msg_from_server["result"]
                     self.root.group_frame.popup_search_result(term, result)
 
+            elif msg_from_server["action"] == "leave_group":
+                no_error = msg_from_server["status"]
+                group_name = msg_from_server["group_name"]
+                msg = '[SYSTEM] ' + msg_from_server["message"]
+                if no_error:
+                    group_id = self.root.group_frame.group_name2id[group_name]
+
+                    self.root.chat_frame.switch_to(utils.SYS_GRP_ID)
+                    self.root.group_frame.group_list_dict[group_name].destroy()
+
+                    self.root.group_frame.group_list_dict.pop(group_name)
+                    self.root.group_frame.group_name2id.pop(group_name)
+                    self.root.group_frame.group_id2name.pop(group_id)
+
+                self.root.chat_frame.new_msg.set(new_content=msg,
+                                                 group_id=utils.SYS_GRP_ID)
+                self.root.chat_frame.put_up_new_msg()
+
             elif msg_from_server["action"] == "logout":
                 if msg_from_server["status"]:
                     self.state = utils.S_OFFLINE
                     self.name = None
                     self.root.status_frame.client_state = utils.S_OFFLINE
                     self.root.status_frame.client_name = "    "
-
-                    if utils.VERBOSE:
-                        print(f"msg_from_server: {msg_from_server}")
 
                     self.root.chat_frame.chat_box.delete(0, 'end')
                     self.clear_history()
@@ -386,8 +391,6 @@ class Client:
             else:
                 return False, ""
         time.sleep(utils.CHAT_WAIT)
-
-
 
 
 class New_message:              # the newest message to be displayed on the screen
@@ -414,9 +417,47 @@ class New_message:              # the newest message to be displayed on the scre
         self.__group_id = utils.SYS_GRP_ID
         self.__send_from = "NULL"
 
+class Leave_group_button(tk.Button):
+    def __init__(self, root: Main_GUI):
+        self.root = root
+        super(Leave_group_button, self).__init__(
+            self.root.chat_frame,
+            text='leave',
+            width=5, height=1,
+            bg=utils.WHITE,
+            relief='flat',
+            font=utils.FONT_LARGE
+        )
+        print("BUTTON LOADED")
+        self.set_command()
+
+    def set_command(self):
+        if self.root.chat_frame.cur_group_id == utils.SYS_GRP_ID or self.root.chat_frame.cur_group_id == -1:
+            # you can't leave the system group
+            self.config(command=lambda: "",        # do nothing
+                        fg=utils.WHITE, bg=utils.WHITE,
+                        relief='flat')
+        else:
+            self.config(state=tk.NORMAL)
+            # suspicious
+            self.config(command=self.leave_group,
+                        fg=utils.DEEPGREY, bg=utils.WHITE,
+                        relief='raised')
+
+            if utils.VERBOSE:
+                print(f"Inside leave_group_btn: leave group name: {self.root.group_frame.group_id2name[self.root.chat_frame.cur_group_id]}")
+
+    def leave_group(self):
+        group_name = self.root.group_frame.group_id2name[self.root.chat_frame.cur_group_id]
+        answer = messagebox.askquestion(title="Exit?",
+                                        message=f"Are you sure you want to leave group: '{group_name}'?"
+                                                f"\n(All the messages you sent in this group will be deleted)")
+        if answer == "yes":
+            self.root.chat_frame.leave_group(group_name)
+
 
 class Group_button(tk.Button):
-    def __init__(self, root, group_id: int, group_name: str, chat_frame):
+    def __init__(self, root: Main_GUI, group_id: int, group_name: str, chat_frame):
 
         if not isinstance(group_id, int):
             raise TypeError(f"group_id of Group_Button must be int (not {type(group_id)})")
@@ -435,9 +476,9 @@ class Group_button(tk.Button):
                 self.group_name += '\n'
 
         text=f"#{str(group_id)}\n{group_name}"
-        super(Group_button, self).__init__(root,
+        super(Group_button, self).__init__(self.root.group_frame.group_list_frame,
                                            text=text,
-                                           command=lambda: (chat_frame.switch_to(group_id=group_id)),
+                                           command=lambda:f"{self.root.chat_frame.switch_to(group_id=group_id)}",
                                            bg=utils.GREY,
                                            fg=utils.WHITE,
                                            font=utils.FONT_LARGE,
@@ -453,6 +494,9 @@ class Group_frame(tk.Frame):
         self.group_list_frame = tk.Frame(self, bg=utils.GREY)
         self.group_list_frame.grid(row=0, column=0, columnspan=2, sticky="n")
         self.group_list = []
+        self.group_list_dict = {}       # name2btn
+        self.group_id2name = {}
+        self.group_name2id = {}
 
         # system info
         tk.Button(self.group_list_frame,
@@ -483,13 +527,14 @@ class Group_frame(tk.Frame):
 
         self.group_list_frame.columnconfigure(0, weight=1)
 
-    # todo
     def load_history(self, history):
-        print(f"history: {history}")
+        if utils.VERBOSE:
+            print(f"history: {history}")
         for h in history:
             self.put_up_group(group_id=h[0],
                               group_name=h[1])
-        print("All history are loaded")
+        if utils.VERBOSE:
+            print("All history are loaded")
 
     def put_up_group(self, group_id, group_name):
         if self.root.client.group_count > utils.MAX_GROUP_NUM:
@@ -498,7 +543,7 @@ class Group_frame(tk.Frame):
             self.root.chat_frame.put_up_new_msg()
         else:
             self.root.chat_frame.cache[group_id] = f"Group #{group_id}: {group_name}"
-            btn = Group_button(root=self.group_list_frame,
+            btn = Group_button(root=self.root,
                                group_id=group_id,
                                group_name=group_name,
                                chat_frame=self.root.chat_frame)
@@ -506,14 +551,29 @@ class Group_frame(tk.Frame):
                      column=0,
                      sticky="nwe")
             self.group_list.append(btn)
+            if utils.VERBOSE:
+                print(self.group_list_dict, self.group_id2name, self.group_name2id)
+            if group_name not in self.group_list_dict:
+                self.group_list_dict[group_name] = btn
+                self.group_id2name[group_id] = group_name
+                self.group_name2id[group_name] = group_id
+            else:
+                raise Exception("How is this possible ?!")
+
             self.root.client.group_count += 1
-            print(f"Group #{group_id}: {group_name} put up.")
+            if utils.VERBOSE:
+                print(f"Group #{group_id}: {group_name} put up.")
+            self.group_list_dict[group_name] = btn
+            self.group_id2name[group_id] = group_name
+            self.group_name2id[group_name] = group_id
 
     def clear_history(self):
         # clear history of previous users
-        for b in self.group_list:
+        # for b in self.group_list:
+        for b in self.group_list_dict.values():
             b.destroy()
-        self.group_list = []
+        # self.group_list = []
+        self.group_list_dict = {}
         # switch to system chat_box
         self.root.chat_frame.switch_to(utils.SYS_GRP_ID)
 
@@ -562,7 +622,6 @@ class Group_frame(tk.Frame):
             w.grid(padx=4)
             w.grid(pady=2)
 
-    # todo
     def join_group(self, group_name: str):
         if self.root.client.state == utils.S_LOGGEDIN:
             if group_name in self.root.chat_frame.cache:    # user has already join this group
@@ -576,7 +635,6 @@ class Group_frame(tk.Frame):
             else:
                 self.root.client.join_group(group_name)
 
-    # todo
     def create_group(self, group_name: str):
         if self.root.client.state == utils.S_LOGGEDIN:
             if group_name.isspace():
@@ -728,7 +786,7 @@ class Func_frame(tk.Frame):
         popup a window that shows the poem (poem is retrieved from the SYSTEM)
         """
         self.popup_show_poem_frame = tk.Toplevel(self, bg=utils.GREY)
-        self.popup_show_poem_frame.geometry("250x600")
+        self.popup_show_poem_frame.geometry("400x600")
         self.popup_show_poem_frame.title("Search Result")
         self.popup_show_poem_frame.focus()
         self.popup_show_poem_frame.rowconfigure(0, weight=1)
@@ -746,6 +804,7 @@ class Func_frame(tk.Frame):
         if poem is not None:
             poem_display_text.insert(tk.END, poem)
             poem_display_text.config(state=tk.DISABLED)
+            self.popup_get_poem_frame.destroy()
         else:
             self.popup_show_poem_frame.destroy()
 
@@ -754,8 +813,7 @@ class Func_frame(tk.Frame):
         popup a window that asks for the poem index.
         """
         if self.root.client.state == utils.S_OFFLINE:
-            msg = f"[SYSTEM] Please log in first."
-            self.root.chat_frame.new_msg.set(new_content=msg,
+            self.root.chat_frame.new_msg.set(new_content="[SYSTEM] Please log in first.",
                                              group_id=utils.SYS_GRP_ID)
             self.root.chat_frame.put_up_new_msg()
         else:
@@ -781,6 +839,7 @@ class Func_frame(tk.Frame):
                                       bg=utils.WHITE,
                                       font=utils.FONT_LARGE)
             poem_idx_entry.grid(row=1, column=0, sticky="nwe")
+            poem_idx_entry.focus()
 
             tk.Button(self.popup_get_poem_frame,
                        text="Get Poem",
@@ -868,12 +927,14 @@ class Chat_frame(tk.Frame):
         self.cache = {utils.SYS_GRP_ID: "System"}
         self.new_msg = New_message()
 
+
+
         self.chat_box = tk.Text(self, 
                                 bg=utils.WHITE,
                                 fg=utils.BLACK,
                                 bd=2)
         self.chat_box.grid(row=1, column=0,
-                           columnspan=2, sticky="nswe")
+                           columnspan=3, sticky="nswe")
         self.chat_box.config(state=tk.DISABLED,
                              highlightbackground = utils.BLACK,
                              font = utils.FONT_NORMAL)
@@ -881,24 +942,26 @@ class Chat_frame(tk.Frame):
         yscroll = ttk.Scrollbar(self,
                                 orient="vertical",
                                 command=self.chat_box.yview)
-        yscroll.grid(row=1, column=1, sticky="nse")
+        yscroll.grid(row=1, column=2, sticky="nse")
 
         self.chat_entry = tk.Text(self, height=3,
                                    bg=utils.WHITE,
                                    fg=utils.BLACK,
                                    bd=2)
-        self.chat_entry.grid(row=2, column=0, sticky="nswe")
+        self.chat_entry.grid(row=2, column=0, columnspan=2, sticky="nswe")
         self.chat_entry.config(highlightbackground=utils.BLACK,
                                font=utils.FONT_NORMAL)
 
 
         self.send_msg_btn = tk.Button(self, text="send",
-                                      width=5, height=3,
-                                      font=utils.FONT_NORMAL,
+                                      width=5, height=2,
+                                      bg=utils.WHITE,
+                                      relief='raised',
+                                      font=utils.FONT_LARGE,
                                       command=lambda: f"{self.chat(self.chat_entry.get('1.0', tk.END),self.cur_group_id)}"
                                                       f"{self.chat_entry.delete('1.0', tk.END)}")
 
-        self.send_msg_btn.grid(row=2, column=1, sticky="nwe")
+        self.send_msg_btn.grid(row=2, column=2, sticky="nwe")
 
         for w in self.winfo_children():
             w.grid(padx=4)
@@ -934,13 +997,27 @@ class Chat_frame(tk.Frame):
             self.chat_box.see(tk.END)
 
             self.cur_group_id = group_id
+            self.root.leave_group_btn.set_command()
         else:
             self.new_msg.set(new_content=f"[ERROR] group with id: {group_id} does not exist",
                              group_id=utils.SYS_GRP_ID)
             self.put_up_new_msg()
             self.switch_to(utils.SYS_GRP_ID)
 
-    # todo: chat
+
+    def leave_group(self, group_name):
+        """
+        leave the group permanently
+        """
+        if utils.VERBOSE:
+            print("leave_group called once")
+        if group_name in self.root.group_frame.group_list_dict:
+            self.root.client.leave_group(group_name)
+        else:
+            raise Exception(f"{group_name} is not {self.root.client.name}'s group\nWhy, my god why?")
+
+        pass
+
     def chat(self, message: str, group_id: int):
         if not message.isspace():       # won't send empty message
             # if user talk to system, echo the message
@@ -948,7 +1025,8 @@ class Chat_frame(tk.Frame):
                 self.new_msg.set(f"[{self.root.client.name}] {message.rstrip()}")
                 self.put_up_new_msg()
             else:
-                print(message, group_id)
+                if utils.VERBOSE:
+                    print(message, group_id)
                 self.root.client.chat(message=message,
                                       group_id=group_id)
 
@@ -992,6 +1070,7 @@ class Status_frame(tk.Frame):
         for w in self.winfo_children():
             w.grid(padx=4)
             w.grid(pady=2)
+
 
     @property
     def client_name(self):

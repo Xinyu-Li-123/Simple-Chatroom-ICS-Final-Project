@@ -268,16 +268,24 @@ class Server:
                     utils.mysend(from_sock, json.dumps({"action": "search_chat_history",
                                                         "status": no_error,
                                                         "message": result}))
+            elif msg_from_user['action'] == "leave_group":
+                username = msg_from_user["send_from"]
+                group_name = msg_from_user["group_name"]
+                no_error, msg = self.dbms.delete_user_from_group(username, group_name)
+                utils.mysend(from_sock, json.dumps({"action": "leave_group",
+                                                    "status": no_error,
+                                                    "group_name": group_name,
+                                                    "message": msg}))
 
             elif msg_from_user['action'] == "logout":
-                name = msg_from_user["send_from"]
+                username = msg_from_user["send_from"]
                 try:
                     no_error = self.logout(from_sock)
                     if no_error:
                         utils.mysend(from_sock, json.dumps(
                             {"action": "logout",
                              "status": True,
-                             "message": f"{name} has logged out"}))
+                             "message": f"{username} has logged out"}))
                     else:
                         utils.mysend(from_sock, json.dumps(
                             {"action": "logout",

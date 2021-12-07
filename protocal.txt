@@ -1,0 +1,237 @@
+1. Config
+    Database:   sqlite
+    Version:    SQLite 3.36.0
+                2021-06-18 18:36:39 5c9a6c06871cb9fe42814af9c039eb6da5427a6ec28f187af7ebfb62eafa66e5
+                zlib version 1.2.11
+                gcc-5.2.0
+
+2. data flow
+
+user click button()  -->  Main_GUI.function()     -->  Client.function() --send_json_to_Server-->
+                          Some_frame.function()
+
+-->  Server.function()   --send_json_to_Client-->  Client.receive_msg()  --result--> Main_GUI.function handle result    --->----
+     -   .login()                                                                    Some_frame.function handle result
+     -   .logout()
+     -   .handle_msg()
+
+
+-->  Chat_GUI.new_msg.set(result, group_id)
+     Chat_GUI.put_up_msg()
+
+
+3. Format of data
+3.1 Login
+msg_from_user (msg_to_server):
+    {
+        "action": "login",
+        "username": username,
+        "password": password
+    }
+
+msg_to_user (msg_from_server):
+    if login succeed:
+        {
+            "action": "login",
+            "status": True,
+            "username": username,
+            "message": f"Login successfully as: {username}."
+        }
+    elif user has already logged in:
+        {
+            "action": login,
+            "status": False,
+            "username": username,
+            "message": f"Duplicated login attempt: {username} has already logged in!"
+        }
+    elif username is not registered:
+        {
+            "action": "login",
+            "status": False,
+            "username": username,
+            "message": f"{username} is not registered!"
+        }
+    elif password is not correct:
+        {
+            "action": "login",
+            "status": False
+            "username": username,
+            "message": f"password incorrect"
+        }
+    else:
+        undefined (probably msg_from_user has wrong format)
+
+
+3.2. Register
+msg_from_user
+    {
+        "action": "regster",
+        "username": username,
+        "password": password
+    }
+
+msg_to_user
+    if register succeed:
+        {
+            "action": "register",
+            "status": True,
+            "username": username,
+            "password": password,
+            "msg": f"Register successfully as {username}"
+        }
+    elif register fail:
+        if username has been used:
+            {
+                "action": "register",
+                "status": False,
+                "msg": f"Username: {username} has been used."
+            }
+        else:
+            {
+                "action": "register",
+                "status": False,
+                "msg": "Unknown error has occured during registration."
+            }
+
+3.3. Logout
+msg_from_user:
+    {
+        "action": "logout",
+        "send_from": username
+    }
+
+msg_to_user:
+    if logout succeed:
+        {
+            "action": "logout",
+            "status": True
+        }
+
+3.10 load history (get previous group)
+msg_from_user:
+    {
+        "action": "load_history",
+        "send_from": self.name
+    }
+
+msg_to_user:
+If no error:
+    {
+        "action": "load_history",
+        "status": True,
+        "result": history
+    }
+else:
+    {
+        "action": "load_history",
+        "status": False,
+        "message": error msg
+    }
+
+
+3.4. Ask for time
+msg_from_user:
+    {
+        "action": "time",
+        "send_from": username
+    }
+
+msg_to_user:
+    {
+        "action": "time",
+        "result": current server time
+    }
+
+
+3.5. Ask for poem
+msg_from_user:
+    {
+        "action": "poem",
+        "send_from": username,
+        "target": poem_idx: Int
+    }
+
+msg_to_user:
+    {
+        "action": "poem"
+        "result": poem: Str
+    }
+
+
+3.6. Logout # logout, but won't close GUI
+msg_from_user:
+    {
+        "action": "logout",
+        "send_from": self.name
+    }
+
+
+
+
+3.7. Create Group
+msg_from_user:
+    {
+        "action": "create_group",
+        "send_from": self.name
+    }
+
+msg_to_user:
+If no error:
+    {
+        "action": "create_group",
+        "status": True,
+        "message":
+    }
+
+
+3.8. Join Group
+msg_from_user:
+    {
+        "action": "join_group",
+        "send_from": self.name,
+        "group_name":  group name
+    }
+
+msg_to_user:
+    {
+
+    }
+
+
+3.9. Send messsage in group
+msg_from_user
+    {
+        "action": "send_chat",
+        "send_from": self.name,
+        "send_to": group_id,
+        "message": message
+    }
+
+Inside server
+    record into database
+    send everyone in group: group_id
+
+msg_to_user and peer
+    {
+        "action": "recv_chat",
+        "send_from": self.name,
+        "send_to": group_id,
+        "message": message
+    }
+
+
+3.10. Search for (personal) chat history
+msg_from_user
+    {
+        "action": "search_chat_history",
+        "send_from": username,
+        "search_term": something-to-search
+    }
+
+
+3.11. exit (socket.close())
+msg_from_user:
+    {
+        "action": "exit",
+        "send_from": username
+    }
